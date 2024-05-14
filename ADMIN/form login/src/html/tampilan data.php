@@ -1,5 +1,48 @@
   <?php
 
+function rc4($key, $encrypted_str)
+  {
+    // Inisialisasi array s
+    $s = array();
+    for ($i = 0; $i < 256; $i++) {
+      $s[$i] = $i;
+    }
+
+    // Inisialisasi variabel dan array lainnya
+    $j = 0;
+    $key_length = strlen($key);
+    $str_length = strlen($encrypted_str);
+    $res = '';
+
+    // Key-Scheduling Algorithm (KSA)
+    for ($i = 0; $i < 256; $i++) {
+      $j = ($j + $s[$i] + ord($key[$i % $key_length])) % 256;
+      $temp = $s[$i];
+      $s[$i] = $s[$j];
+      $s[$j] = $temp;
+    }
+
+    // Pseudo-Random Generation Algorithm (PRGA) dan Dekripsi
+    $i = $j = 0;
+    for ($y = 0; $y < $str_length / 2; $y++) {
+      $i = ($i + 1) % 256;
+      $j = ($j + $s[$i]) % 256;
+      $temp = $s[$i];
+      $s[$i] = $s[$j];
+      $s[$j] = $temp;
+
+      // Mendapatkan byte enkripsi dari ciphertext dalam format heksadesimal
+      $hex = substr($encrypted_str, $y * 2, 2); //Baris ini mengambil dua karakter dari ciphertext dalam format heksadesimal pada setiap iterasi loop.
+
+      // Mendekripsi byte
+      $res .= chr(hexdec($hex) ^ $s[($s[$i] + $s[$j]) % 256]); //Baris ini mendekripsi byte yang diambil dari ciphertext.
+    }
+
+    return $res;
+  }
+  
+  $key = 'kuncisaya';
+
   // Lakukan koneksi ke database (gunakan informasi koneksi Anda)
   $servername = "localhost";
   $username = "root";
@@ -386,15 +429,21 @@ while ($row = mysqli_fetch_assoc($result2)) {
   $data[] = $row;
 }
 
-foreach ($data as $row) {
+while ($row = $result->fetch_assoc()) {
+$lokasi_decrypted = rc4($key, $row['lokasi']);
+$alamat_decrypted = rc4($key, $row['alamat']);
+$luas_decrypted = rc4($key, $row['luas']);
+$status_decrypted = rc4($key, $row['status']);
+$latitude = $row['latitude'];
+$longitude = $row['longitude'];
 
-  echo "<tr>";
-  echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $row['lokasi'] . "</h6></td>";
-  echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $row['alamat'] . "</h6></td>";
-  echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $row['luas'] . "</h6></td>";
-  echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $row['lokasi'] . "</h6></td>";
-  echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $row['latitude'] . "</h6></td>";
-  echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $row['longitude'] . "</h6></td>";
+echo "<tr>";
+echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $lokasi_decrypted . "</h6></td>";
+echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $alamat_decrypted . "</h6></td>";
+echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $luas_decrypted . "</h6></td>";
+echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $status_decrypted . "</h6></td>";
+echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $longitude . "</h6></td>";
+echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $latitude . "</h6></td>";
 
   echo "<td class='border-bottom-0'>
       <button class='btn btn-sm btn-primary' onclick='updateData(" . $row['id'] . ")'>Update</button>

@@ -1,6 +1,36 @@
 <?php
 
-
+function rc4($key, $str)
+    {
+      //inisialisasi array 3
+      $s = array();
+      for ($i = 0; $i < 256; $i++) {
+        $s[$i] = $i;
+      }
+    
+      //Key-Scheduling Algorithm
+      $j = 0;
+      for ($i = 0; $i < 256; $i++) { //loop yang akan dieksekusi sebanyak 256 kali
+        $j = ($j + $s[$i] + ord($key[$i % strlen($key)])) % 256; // langkah untuk mengacak array S
+        $temp = $s[$i]; //  Ini adalah langkah untuk menukar nilai antara elemen array S pada indeks $i dengan nilai pada indeks $j.
+        $s[$i] = $s[$j];
+        $s[$j] = $temp;
+      }
+    
+      //Pseudo-Random Generation Algorithm (PRGA) untuk melakukan enkripsi atau dekripsi data.
+      $i = $j = 0;
+      $res = '';
+      for ($y = 0; $y < strlen($str); $y++) {
+        $i = ($i + 1) % 256;
+        $j = ($j + $s[$i]) % 256;
+        $temp = $s[$i];
+        $s[$i] = $s[$j];
+        $s[$j] = $temp;
+        // Menggunakan fungsi sprintf() untuk menghasilkan format heksadesimal
+        $res .= sprintf("%02X", ord($str[$y]) ^ $s[($s[$i] + $s[$j]) % 256]);
+      }
+      return $res;
+    }
 $key = 'kuncisaya';
 
 // Lakukan koneksi ke database (gunakan informasi koneksi Anda)
@@ -28,7 +58,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
   $latitude = $_POST['latitude'];
   $longitude = $_POST['longitude'];
 
-  $query = "INSERT INTO peta (lokasi, alamat, luas, status, latitude, longitude) VALUES ('$lokasi', '$alamat', '$luas', '$status', '$latitude', '$longitude')";
+  $lokasi_encrypted = $conn->real_escape_string(rc4($key, $lokasi));
+  $alamat_encrypted = $conn->real_escape_string(rc4($key, $alamat));
+  $luas_encrypted = $conn->real_escape_string(rc4($key, $luas));
+  $status_encrypted = $conn->real_escape_string(rc4($key, $status));
+
+  $query = "INSERT INTO peta (lokasi, alamat, luas, status, latitude, longitude) VALUES ('$lokasi_encrypted', '$alamat_encrypted', '$luas_encrypted', '$status_encrypted', '$latitude', '$longitude')";
 
   if ($conn->query($query) === TRUE) {
     echo "Data berhasil disimpan";
@@ -151,6 +186,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                     document.querySelector("#status").value = value;
                                 }
                                 </script>
+                                <br>
+                                <div class="mb-3">
+                                    <label for="latitude" class="form-label">latitude</label>
+                                    <input type="text" class="form-control" id="latitude" name="latitude" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="longitude" class="form-label">longitude</label>
+                                    <input type="text" class="form-control" id="longitude" name="longitude" required>
+                                </div>
                                 <br>
                                 <button type="submit" class="btn btn-primary">Submit</button>
                         </form>
