@@ -171,6 +171,30 @@ $result = $conn->query($query);
       }
   }
 }
+
+$fetchQuery = "SELECT lokasi, alamat, luas, status, latitude, longitude FROM peta";
+$fetchResult = $conn->query($fetchQuery);
+
+if ($fetchResult->num_rows > 0) {
+    $groupedData = [];
+    while ($row = $fetchResult->fetch_assoc()) {
+        $lokasi = $row['lokasi'];
+        $alamat = $row['alamat'];
+        $luas = $row['luas'];
+        $status = $row['status'];
+        $latitude = $row['latitude'];
+        $longitude = $row['longitude'];
+
+        // Memasukkan data ke dalam array terpisah berdasarkan lokasi
+        $groupedData[$lokasi]['alamat'][] = $alamat;
+        $groupedData[$lokasi]['luas'][] = $luas;
+        $groupedData[$lokasi]['status'][] = $status;
+        $groupedData[$lokasi]['latitude'] = $latitude;
+        $groupedData[$lokasi]['longitude'] = $longitude;
+    }
+} else {
+    echo "Tidak ada data yang ditemukan.";
+}
   ?>
 
   <!DOCTYPE html>
@@ -527,131 +551,44 @@ for ($i = 1; $i <= $totalPages; $i++) {
               <script src="https://stackpath.bootstrapcdn.com/bootstrap/5.1.3/js/bootstrap.min.js"></script>
               <script src="../assets/js/sidebarmenu.js"></script>
               <script src="../assets/js/app.min.js"></script>
-              <script src="../assets/libs/apexcharts/dist/apexcharts.min.js"></script>
               <script src="../assets/libs/simplebar/dist/simplebar.js"></script>
               <script src="../assets/js/dashboard.js"></script>
   </body>
-  <script src="assets/js/main.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
   <script src="data/ajaxleaflet.js"></script>
 
   <script>
-var map = L.map("map").setView([-0.891871, 119.859972], 15);
+var map = L.map("map").setView([-0.891871, 119.859972], 12);
 
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
+var layer = L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+    maxZoom: 20,
+    subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
 }).addTo(map);
 
-const info = L.control();
+<?php
+        foreach ($groupedData as $location => $data) {
+    $latitude = $data['latitude'];
+    $longitude = $data['longitude'];
 
-info.onAdd = function(map) {
-    this._div = L.DomUtil.create('div', 'info');
-    this.update();
-    return this._div;
-};
-<?php echo 'const iniDataku ='.json_encode($groupedData)?>
+    // Output JavaScript to add a marker for this location
+    echo "L.marker([$latitude, $longitude]).addTo(map);\n";
 
+    // Define coordinates for the rectangle
+    $rectangleCoordinates = [
+        [$latitude - 0.0005, $longitude - 0.0005], // Lower left corner
+        [$latitude - 0.0005, $longitude + 0.0005], // Lower right corner
+        [$latitude + 0.0005, $longitude + 0.0005], // Upper right corner
+        [$latitude + 0.0005, $longitude - 0.0005], // Upper left corner
+    ];
 
-info.update = function(props) {
-    // const contents = props ? `<b>${props.KAB_KOTA}</b><br />${props.POPULASI} jumlah pernikahan dini` : 'Hover';
-    const contents = props ? `<b>${props.namalokasi}</b><br />${iniDataku[props.namalokasi]} Luas` : 'Hover';
-    this._div.innerHTML = `<h4>Sertifikasi</h4>${contents}`;
-};
+    // Output JavaScript to add a rectangle for this location
+    echo "L.rectangle(" . json_encode($rectangleCoordinates) . ").addTo(map);\n";
 
-info.addTo(map);
-
-
-// get color depending on population density value
-function getColor(d) {
-    return d > 71 ? '#800026' :
-        d > 61 ? '#BD0026' :
-        d > 51 ? '#E31A1C' :
-        d > 41 ? '#FC4E2A' :
-        d > 31 ? '#FD8D3C' :
-        d > 21 ? '#FEB24C' :
-        d > 11 ? '#FED976' :
-        '#030303';
+    
 }
-
-function style(feature) {
-    return {
-        weight: 2,
-        opacity: 1,
-        color: 'white',
-        dashArray: '3',
-        fillOpacity: 0.7,
-        fillColor: getColor(iniDataku[feature.properties.namalokasi])
-    };
-}
-
-function highlightFeature(e) {
-    const layer = e.target;
-
-    layer.setStyle({
-        weight: 5,
-        color: '#666',
-        dashArray: '',
-        fillOpacity: 0.7
-    });
-
-    layer.bringToFront();
-
-    info.update(layer.feature.properties);
-}
-
-function resetHighlight(e) {
-    var layer = e.target;
-    layer.setStyle({
-        weight: 2,
-        opacity: 1,
-        color: 'white',
-        dashArray: '3',
-    });
-    info.update();
-}
-
-function zoomToFeature(e) {
-    map.fitBounds(e.target.getBounds());
-}
-
-function onEachFeature(feature, layer) {
-    layer.on({
-        mouseover: highlightFeature,
-        mouseout: resetHighlight,
-        click: zoomToFeature
-    });
-}
-
-const legend = L.control({
-    position: 'bottomright'
-});
-
-legend.onAdd = function(map) {
-
-    const div = L.DomUtil.create('div', 'info legend');
-    const grades = [0, 10, 20, 30, 40, 50, 60, 70];
-    const labels = [];
-    let from, to;
-
-    for (let i = 0; i < grades.length; i++) {
-        from = grades[i];
-        to = grades[i + 1];
-
-        labels.push(`<i style="background:${getColor(from + 1)}"></i> ${from}${to ? `&ndash;${to}` : '+'}`);
-    }
-
-    div.innerHTML = labels.join('<br>');
-    return div;
-};
-
-legend.addTo(map);
-
-var jsonTest = new L.GeoJSON.AJAX(["data/tes.geojson"], {
-    style: style,
-    onEachFeature: onEachFeature
-}).addTo(map);
+        ?>
   </script>
 
   </html>
