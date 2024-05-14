@@ -558,7 +558,6 @@ for ($i = 1; $i <= $totalPages; $i++) {
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
   <script src="data/ajaxleaflet.js"></script>
-
   <script>
 var map = L.map("map").setView([-0.891871, 119.859972], 12);
 
@@ -568,27 +567,32 @@ var layer = L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
 }).addTo(map);
 
 <?php
-        foreach ($groupedData as $location => $data) {
-    $latitude = $data['latitude'];
-    $longitude = $data['longitude'];
+    foreach ($groupedData as $location => $data) {
+        $latitude = $data['latitude'];
+        $longitude = $data['longitude'];
+        $lokasi_decrypted = rc4($key, $location);
+        $alamat_decrypted = rc4($key, $alamat);
+        $luas_decrypted = rc4($key, $luas);
+        $status_decrypted = rc4($key, $status);
 
-    // Output JavaScript to add a marker for this location
-    echo "L.marker([$latitude, $longitude]).addTo(map);\n";
+        // Output JavaScript to add a marker for this location
+        echo "var marker = L.marker([$latitude, $longitude]).addTo(map);\n";
 
-    // Define coordinates for the rectangle
-    $rectangleCoordinates = [
-        [$latitude - 0.0005, $longitude - 0.0005], // Lower left corner
-        [$latitude - 0.0005, $longitude + 0.0005], // Lower right corner
-        [$latitude + 0.0005, $longitude + 0.0005], // Upper right corner
-        [$latitude + 0.0005, $longitude - 0.0005], // Upper left corner
-    ];
+        // Bind a popup to the marker
+        echo "marker.bindPopup('<b>Lokasi:</b> $lokasi_decrypted<br><b>Latitude:</b> $latitude<br><b>Longitude:</b> $longitude<br><b>alamat:</b> $alamat_decrypted<br><b>luas:</b> $luas_decrypted<br><b>status:</b> $status_decrypted<br>').openPopup();\n";
 
-    // Output JavaScript to add a rectangle for this location
-    echo "L.rectangle(" . json_encode($rectangleCoordinates) . ").addTo(map);\n";
+        // Define coordinates for the rectangle
+        $rectangleCoordinates = [
+            [$latitude - 0.0005, $longitude - 0.0005], // Lower left corner
+            [$latitude - 0.0005, $longitude + 0.0005], // Lower right corner
+            [$latitude + 0.0005, $longitude + 0.0005], // Upper right corner
+            [$latitude + 0.0005, $longitude - 0.0005], // Upper left corner
+        ];
 
-    
-}
-        ?>
+        // Output JavaScript to add a rectangle for this location
+        echo "L.rectangle(" . json_encode($rectangleCoordinates) . ").addTo(map);\n";
+    }
+    ?>
   </script>
 
   </html>
