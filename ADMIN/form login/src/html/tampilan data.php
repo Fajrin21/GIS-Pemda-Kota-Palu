@@ -75,26 +75,6 @@ function rc4($key, $encrypted_str)
     }
   }
 
-  $fetchQuery = "SELECT lokasi, alamat, luas, status FROM peta";
-$fetchResult = $conn->query($fetchQuery);
-
-if ($fetchResult->num_rows > 0) {
-    $groupedData = [];
-    while ($row = $fetchResult->fetch_assoc()) {
-        $lokasi = $row['lokasi'];
-        $alamat = $row['alamat'];
-        $luas = $row['luas'];
-        $status = $row['status'];
-
-        // Memasukkan data ke dalam array terpisah berdasarkan lokasi
-        $groupedData[$lokasi]['alamat'][] = $alamat;
-        $groupedData[$lokasi]['luas'][] = $luas;
-        $groupedData[$lokasi]['status'][] = $status;
-    }
-} else {
-    echo "Tidak ada data yang ditemukan.";
-}
-
   if (isset($_GET['fetch_data']) && isset($_GET['id'])) {
     $id = $_GET['id'];
     $fetchQuery = "SELECT * FROM peta WHERE id = $id";
@@ -122,8 +102,6 @@ if ($fetchResult->num_rows > 0) {
     }
     exit(); // Stop further execution
 }
-
-
 
 
   $recordsPerPage = 5; // Adjust as needed

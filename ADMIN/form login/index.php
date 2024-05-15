@@ -1,5 +1,48 @@
 <?php
 
+function rc4($key, $encrypted_str)
+  {
+    // Inisialisasi array s
+    $s = array();
+    for ($i = 0; $i < 256; $i++) {
+      $s[$i] = $i;
+    }
+
+    // Inisialisasi variabel dan array lainnya
+    $j = 0;
+    $key_length = strlen($key);
+    $str_length = strlen($encrypted_str);
+    $res = '';
+
+    // Key-Scheduling Algorithm (KSA)
+    for ($i = 0; $i < 256; $i++) {
+      $j = ($j + $s[$i] + ord($key[$i % $key_length])) % 256;
+      $temp = $s[$i];
+      $s[$i] = $s[$j];
+      $s[$j] = $temp;
+    }
+
+    // Pseudo-Random Generation Algorithm (PRGA) dan Dekripsi
+    $i = $j = 0;
+    for ($y = 0; $y < $str_length / 2; $y++) {
+      $i = ($i + 1) % 256;
+      $j = ($j + $s[$i]) % 256;
+      $temp = $s[$i];
+      $s[$i] = $s[$j];
+      $s[$j] = $temp;
+
+      // Mendapatkan byte enkripsi dari ciphertext dalam format heksadesimal
+      $hex = substr($encrypted_str, $y * 2, 2); //Baris ini mengambil dua karakter dari ciphertext dalam format heksadesimal pada setiap iterasi loop.
+
+      // Mendekripsi byte
+      $res .= chr(hexdec($hex) ^ $s[($s[$i] + $s[$j]) % 256]); //Baris ini mendekripsi byte yang diambil dari ciphertext.
+    }
+
+    return $res;
+  }
+  
+  $key = 'kuncisaya';
+
 $servername = "localhost";
   $username = "root";
   $password = "";
@@ -28,8 +71,74 @@ if ($fetchResultLuas->num_rows > 0) {
     }
 }
 
-?>
+$fetchQuery = "SELECT lokasi, alamat, luas, status, latitude, longitude FROM peta";
+$fetchResult = $conn->query($fetchQuery);
 
+if ($fetchResult->num_rows > 0) {
+    $groupedData = [];
+    while ($row = $fetchResult->fetch_assoc()) {
+        $lokasi = $row['lokasi'];
+        $alamat = $row['alamat'];
+        $luas = $row['luas'];
+        $status = $row['status'];
+        $latitude = $row['latitude'];
+        $longitude = $row['longitude'];
+
+        // Memasukkan data ke dalam array terpisah berdasarkan lokasi
+        $groupedData[$lokasi]['alamat'][] = $alamat;
+        $groupedData[$lokasi]['luas'][] = $luas;
+        $groupedData[$lokasi]['status'][] = $status;
+        $groupedData[$lokasi]['latitude'] = $latitude;
+        $groupedData[$lokasi]['longitude'] = $longitude;
+    }
+} else {
+    echo "Tidak ada data yang ditemukan.";
+}
+
+ $recordsPerPage = 5; // Adjust as needed
+$page = isset($_GET['page']) ? intval($_GET['page']) : 1;
+$offset = ($page - 1) * $recordsPerPage;
+
+// Fetch total number of records
+$totalQuery = "SELECT COUNT(*) AS total FROM peta";
+$totalResult = $conn->query($totalQuery);
+$totalRecords = $totalResult->fetch_assoc()['total'];
+
+// Calculate total pages
+$totalPages = ceil($totalRecords / $recordsPerPage);
+
+$query = "SELECT * FROM peta LIMIT $offset, $recordsPerPage";
+$result = $conn->query($query);
+
+  if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Check if the form was submitted
+    $id = isset($_POST['id']) ? $_POST['id'] : null;
+
+    // Validate other fields as needed
+    $lokasi = $_POST['lokasi'];
+    $alamat = $_POST['alamat'];
+    $luas = $_POST['luas'];
+    $status = $_POST['status'];
+    $latitude = $_POST['latitude'];
+    $longitude = $_POST['longitude'];
+
+
+    if ($id) {
+      $updateQuery = "UPDATE peta SET lokasi = '$lokasi', alamat = '$alamat', luas = '$luas', status = '$status', latitude = '$latitude', longitude = '$longitude' WHERE id = $id";
+      if ($conn->query($updateQuery) === TRUE) {
+          echo "Record updated successfully";
+      } else {
+          echo "Error updating record: " . $conn->error;
+      }
+  } else {
+      $insertQuery = "INSERT INTO peta (lokasi, alamat, luas, status, latitude, longitude) VALUES ('$lokasi', '$alamat', '$luas', '$status', '$latitude', '$longitude')";
+      if ($conn->query($insertQuery) === TRUE) {
+          echo "New record created successfully";
+      } else {
+          echo "Error: " . $insertQuery . "<br>" . $conn->error;
+      }
+  }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -98,6 +207,80 @@ if ($fetchResultLuas->num_rows > 0) {
         opacity: 0.7;
     }
     </style>
+    <script>
+    function submitForm() {
+        // Fetch form data
+        var formData = $('#updateForm').serialize();
+
+        // Send an AJAX request to update data
+        $.ajax({
+            type: 'POST',
+            url: window.location.href,
+            data: formData,
+            success: function(response) {
+                try {
+                    var data = JSON.parse(response);
+                    if (data.status === 'success') {
+                        // If update is successful, reload the page
+                        location.reload();
+                    } else {
+                        // If there is an error, display the error message
+                        alert('Error updating data: ' + data.message);
+                        location.reload();
+                    }
+                } catch (error) {
+                    console.log(error);
+                } finally {
+                    // Regardless of success or error, hide the modal
+                    $('#updateModal').modal('hide');
+                    location.reload();
+                }
+            },
+            error: function(error) {
+                console.log(error);
+                // In case of an error, hide the modal
+                $('#updateModal').modal('hide');
+                location.reload();
+            }
+        });
+    }
+
+    function deleteData(id) {
+        var isConfirmed = confirm("Are you sure you want to delete this record?");
+        if (isConfirmed) {
+            window.location.href = '?delete=true&id=' + id;
+        }
+    }
+
+    function updateData(id) {
+        $('#updateModal').modal('show');
+        $.ajax({
+            type: 'GET',
+            url: window.location.href,
+            data: {
+                fetch_data: true,
+                id: id
+            },
+            success: function(response) {
+                try {
+                    var data = JSON.parse(response);
+                    $('#user_id').val(data.id);
+                    $('#lokasi').val(data.lokasi);
+                    $('#alamat').val(data.alamat);
+                    $('#luas').val(data.luas);
+                    $('#status').val(data.status);
+                    $('#latitude').val(data.latitude);
+                    $('#longitude').val(data.longitude);
+                } catch (error) {
+                    console.log(error);
+                }
+            },
+            error: function(error) {
+                console.log(error);
+            }
+        });
+    }
+    </script>
 </head>
 
 <body>
@@ -134,6 +317,8 @@ if ($fetchResultLuas->num_rows > 0) {
                                 <td>Alamat</td>
                                 <td>Luas</td>
                                 <td>Status</td>
+                                <td>Latitude</td>
+                                <td>Longitude</td>
                                 <td>Aksi</td>
                             </tr>
                         </thead>
@@ -159,6 +344,7 @@ function bruteForce($search, $data) {
   return $matches;
 }
 
+
 $data = [];
 $query2 = "SELECT * FROM peta";
 if (isset($_GET['search'])) {
@@ -169,70 +355,48 @@ $result2 = mysqli_query($conn, $query2);
 while ($row = mysqli_fetch_assoc($result2)) {
   $data[] = $row;
 }
-$nomor_urut = 1;
-foreach ($data as $row) {
 
-  echo "<tr>";
-  echo "<td>" . $nomor_urut . "</td>"; // Menampilkan nomor urut
-  echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $row['lokasi'] . "</h6></td>";
-  echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $row['alamat'] . "</h6></td>";
-  echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $row['luas'] . "</h6></td>";
-  echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $row['status'] . "</h6></td>";
+$nomor_urut = 1;
+
+while ($row = $result->fetch_assoc()) {
+$lokasi_decrypted = rc4($key, $row['lokasi']);
+$alamat_decrypted = rc4($key, $row['alamat']);
+$luas_decrypted = rc4($key, $row['luas']);
+$status_decrypted = rc4($key, $row['status']);
+$latitude = $row['latitude'];
+$longitude = $row['longitude'];
+
+echo "<tr>";
+echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $nomor_urut . "</h6></td>";
+echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $lokasi_decrypted . "</h6></td>";
+echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $alamat_decrypted . "</h6></td>";
+echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $luas_decrypted . "</h6></td>";
+echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $status_decrypted . "</h6></td>";
+echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $longitude . "</h6></td>";
+echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $latitude . "</h6></td>";
 
   echo "<td class='border-bottom-0'>
       <button class='btn btn-sm btn-primary' onclick='updateData(" . $row['id'] . ")'>Cek</button>
   </td>";
+
+  $nomor_urut++;
 }
-?>
+
+// foreach ($data as $row) {
+//   
+
+
+  // echo "</tr>";}
+                      echo '<ul class="pagination">';
+for ($i = 1; $i <= $totalPages; $i++) {
+    echo '<li class="page-item ' . ($page == $i ? 'active' : '') . '"><a class="page-link" href="?page=' . $i . '">' . $i . '</a></li>';
+}
+                      ?>
                     </table>
                 </section>
             </div>
         </div>
     </div>
-
-    <script>
-    // Wait for the DOM content to be fully loaded
-    document.addEventListener("DOMContentLoaded", function() {
-        // Function to sort the table rows based on the second column (jumlah kasus)
-        function sortTable() {
-            var table, rows, switching, i, x, y, shouldSwitch;
-            table = document.getElementById("data-table");
-            switching = true;
-            while (switching) {
-                switching = false;
-                rows = table.getElementsByTagName("tr");
-                for (i = 1; i < (rows.length - 1); i++) {
-                    shouldSwitch = false;
-                    x = rows[i].getElementsByTagName("td")[2]; // Change index to match your column
-                    y = rows[i + 1].getElementsByTagName("td")[2]; // Change index to match your column
-                    if (parseInt(x.innerHTML) < parseInt(y.innerHTML)) {
-                        shouldSwitch = true;
-                        break;
-                    }
-                }
-                if (shouldSwitch) {
-                    // Swap rows
-                    rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
-                    switching = true;
-                }
-            }
-
-            // Reassigning row numbers
-            var rowCount = 1;
-            for (var j = 1; j < rows.length; j++) {
-                var row = rows[j].getElementsByTagName("td")[0];
-                if (row) {
-                    row.innerHTML = rowCount;
-                    rowCount++;
-                }
-            }
-        }
-
-        // Call the sortTable function when the page is loaded
-        sortTable();
-    });
-    </script>
-
 </body>
 
 <!-- End Footer -->
@@ -255,120 +419,40 @@ foreach ($data as $row) {
 <script src="assets/js/ajaxleaflet.js"></script>
 
 <script>
-var map = L.map("map").setView([-0.891871, 119.859972], 15);
+var map = L.map("map").setView([-0.891871, 119.859972], 12);
 
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
+var layer = L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+    maxZoom: 20,
+    subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
 }).addTo(map);
 
-const info = L.control();
+<?php
+    foreach ($groupedData as $location => $data) {
+        $latitude = $data['latitude'];
+        $longitude = $data['longitude'];
+        $lokasi_decrypted = rc4($key, $location);
+        $alamat_decrypted = rc4($key, $alamat);
+        $luas_decrypted = rc4($key, $luas);
+        $status_decrypted = rc4($key, $status);
 
-info.onAdd = function(map) {
-    this._div = L.DomUtil.create('div', 'info');
-    this.update();
-    return this._div;
-};
+        // Output JavaScript to add a marker for this location
+        echo "var marker = L.marker([$latitude, $longitude]).addTo(map);\n";
 
-<?php echo 'const iniDataku ='.json_encode($groupedData)?>
+        // Bind a popup to the marker
+        echo "marker.bindPopup('<b>Lokasi:</b> $lokasi_decrypted<br><b>Latitude:</b> $latitude<br><b>Longitude:</b> $longitude<br><b>alamat:</b> $alamat_decrypted<br><b>luas:</b> $luas_decrypted<br><b>status:</b> $status_decrypted<br>').openPopup();\n";
 
+        // Define coordinates for the rectangle
+        $rectangleCoordinates = [
+            [$latitude - 0.0005, $longitude - 0.0005], // Lower left corner
+            [$latitude - 0.0005, $longitude + 0.0005], // Lower right corner
+            [$latitude + 0.0005, $longitude + 0.0005], // Upper right corner
+            [$latitude + 0.0005, $longitude - 0.0005], // Upper left corner
+        ];
 
-info.update = function(props) {
-    const contents = props ? `<b>${props.namalokasi}</b><br />${iniDataku[props.namalokasi]} Luas` : 'Hover';
-    this._div.innerHTML = `<h4>Sertifikasi</h4>${contents}`;
-};
-
-info.addTo(map);
-
-
-// get color depending on population density value
-function getColor(d) {
-    return d > 71 ? '#800026' :
-        d > 61 ? '#BD0026' :
-        d > 51 ? '#E31A1C' :
-        d > 41 ? '#FC4E2A' :
-        d > 31 ? '#FD8D3C' :
-        d > 21 ? '#FEB24C' :
-        d > 11 ? '#FED976' :
-        '#030303';
-}
-
-function style(feature) {
-    return {
-        weight: 2,
-        opacity: 1,
-        color: 'white',
-        dashArray: '3',
-        fillOpacity: 0.7,
-        fillColor: getColor(iniDataku[feature.properties.namalokasi])
-    };
-}
-
-function highlightFeature(e) {
-    const layer = e.target;
-
-    layer.setStyle({
-        weight: 5,
-        color: '#666',
-        dashArray: '',
-        fillOpacity: 0.7
-    });
-
-    layer.bringToFront();
-
-    info.update(layer.feature.properties);
-}
-
-function resetHighlight(e) {
-    var layer = e.target;
-    layer.setStyle({
-        weight: 2,
-        opacity: 1,
-        color: 'white',
-        dashArray: '3',
-    });
-    info.update();
-}
-
-function zoomToFeature(e) {
-    map.fitBounds(e.target.getBounds());
-}
-
-function onEachFeature(feature, layer) {
-    layer.on({
-        mouseover: highlightFeature,
-        mouseout: resetHighlight,
-        click: zoomToFeature
-    });
-}
-
-const legend = L.control({
-    position: 'bottomright'
-});
-
-legend.onAdd = function(map) {
-
-    const div = L.DomUtil.create('div', 'info legend');
-    const grades = [0, 10, 20, 30, 40, 50, 60, 70];
-    const labels = [];
-    let from, to;
-
-    for (let i = 0; i < grades.length; i++) {
-        from = grades[i];
-        to = grades[i + 1];
-
-        labels.push(`<i style="background:${getColor(from + 1)}"></i> ${from}${to ? `&ndash;${to}` : '+'}`);
+        // Output JavaScript to add a rectangle for this location
+        echo "L.rectangle(" . json_encode($rectangleCoordinates) . ").addTo(map);\n";
     }
-
-    div.innerHTML = labels.join('<br>');
-    return div;
-};
-
-legend.addTo(map);
-
-var jsonTest = new L.GeoJSON.AJAX(["./src/html/data/tes.geojson"], {
-    style: style,
-    onEachFeature: onEachFeature
-}).addTo(map);
+    ?>
 </script>
 
 </html>
