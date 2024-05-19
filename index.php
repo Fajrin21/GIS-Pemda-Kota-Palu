@@ -174,42 +174,66 @@ $result = $conn->query($query);
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <style>
-    .popup {
-        display: none;
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background-color: #fff;
-        padding: 20px;
-        border: 1px solid #ccc;
-        border-radius: 5px;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
-        z-index: 9999;
-    }
-
-    .popup.active {
-        display: block;
-    }
-
     .overlay {
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
-        background-color: rgba(0, 0, 0, 0.5);
-        z-index: 999;
+        background: rgba(0, 0, 0, 0.5);
         display: none;
+        z-index: 1;
     }
 
     .overlay.active {
         display: block;
     }
 
+    .popup {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        z-index: 1;
+        display: none;
+        width: 400px;
+    }
+
+    .popup.active {
+        display: block;
+    }
+
+    .popup h2 {
+        margin-top: 0;
+    }
+
+    .popup button {
+        margin-top: 20px;
+        padding: 10px 20px;
+        background: #007bff;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .popup button:hover {
+        background: #0056b3;
+    }
+
     #map {
+        z-index: 0;
         width: 800px;
         height: 500px;
+    }
+
+    #popup-map {
+        width: 100%;
+        height: 200px;
     }
 
     .info {
@@ -478,7 +502,12 @@ for ($i = 1; $i <= $totalPages; $i++) {
 
     <div class="overlay" id="overlay"></div>
     <div class="popup" id="popup">
-        <h2>Informasi Lokasi</h2>
+        <B>
+            <center>
+                <h2>INFORMASI LOKASI</h2>
+            </center>
+        </B>
+        <br>
         <div id="popup-content"></div>
         <br>
         <button onclick="closePopup()">Tutup</button>
@@ -541,43 +570,42 @@ var layer = L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
     ?>
 
 function showPopup(location, address, area, status, latitude, longitude) {
-    var popupContent = "<div id='popup-map' style='width: 300px; height: 200px;'></div>" +
-        // Menambahkan div untuk menampilkan peta di dalam pop-up
-        "<p><strong>Lokasi:</strong> " + location + "</p>" +
-        "<p><strong>Alamat:</strong> " + address + "</p>" +
-        "<p><strong>Luas:</strong> " + area + "</p>" +
-        "<p><strong>Status:</strong> " + status + "</p>" +
-        "<p><strong>Latitude:</strong> " + latitude + "</p>" +
-        "<p><strong>Longitude:</strong> " + longitude + "</p>";
+    var popupContent = `
+        <div id='popup-map'></div>
+        </br>
+        <p><strong>Lokasi:</strong> ${location}</p>
+        <p><strong>Alamat:</strong> ${address}</p>
+        <p><strong>Luas:</strong> ${area}</p>
+        <p><strong>Status:</strong> ${status}</p>
+        <p><strong>Latitude:</strong> ${latitude}</p>
+        <p><strong>Longitude:</strong> ${longitude}</p>
+    `;
 
     document.getElementById('popup-content').innerHTML = popupContent;
     document.getElementById('popup').classList.add('active');
     document.getElementById('overlay').classList.add('active');
 
-    // Inisialisasi peta Leaflet di dalam pop-up
     var popupMap = L.map('popup-map').setView([latitude, longitude], 17);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(popupMap);
     L.marker([latitude, longitude]).addTo(popupMap);
+
+    // Tambahkan koordinat kotak
+    var corner1 = [parseFloat(latitude) - 0.00015, parseFloat(longitude) - 0.00015]; // Contoh koordinat sudut kotak
+    var corner2 = [parseFloat(latitude) + 0.00015, parseFloat(longitude) + 0.00015]; // Contoh koordinat sudut kotak
+
+    // Buat kotak dan tambahkan ke peta
+    var rectangle = L.rectangle([corner1, corner2], {
+        color: "#ff7800",
+        weight: 1
+    }).addTo(popupMap);
 }
-
-var rectangleCoordinates = [
-    [latitude - 0.0005, longitude - 0.0005], // Sudut kiri bawah
-    [latitude - 0.0005, longitude + 0.0005], // Sudut kanan bawah
-    [latitude + 0.0005, longitude + 0.0005], // Sudut kanan atas
-    [latitude + 0.0005, longitude - 0.0005], // Sudut kiri atas
-];
-
-// Tambahkan kotak ke peta
-L.rectangle(rectangleCoordinates, {
-    color: "#ff7800",
-    weight: 1
-}).addTo(popupMap);
-
 
 function closePopup() {
     document.getElementById('popup').classList.remove('active');
     document.getElementById('overlay').classList.remove('active');
 }
+
+closePopup();
 </script>
 
 
