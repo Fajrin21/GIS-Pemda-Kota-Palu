@@ -367,52 +367,97 @@ $result = $conn->query($query);
                         </form>
                         <?php
 
-function bruteForce($search, $data) {
-  $matches = [];
-  foreach ($data as $row) {
-      if (strpos(strtolower($row['lokasi']), strtolower($search)) !== false) {
-          $matches[] = $row;
+                        function rc4encrypt($key, $str)
+    {
+      //inisialisasi array 3
+      $s = array();
+      for ($i = 0; $i < 256; $i++) {
+        $s[$i] = $i;
       }
-  }
-  return $matches;
+    
+      //Key-Scheduling Algorithm
+      $j = 0;
+      for ($i = 0; $i < 256; $i++) { //loop yang akan dieksekusi sebanyak 256 kali
+        $j = ($j + $s[$i] + ord($key[$i % strlen($key)])) % 256; // langkah untuk mengacak array S
+        $temp = $s[$i]; //  Ini adalah langkah untuk menukar nilai antara elemen array S pada indeks $i dengan nilai pada indeks $j.
+        $s[$i] = $s[$j];
+        $s[$j] = $temp;
+      }
+    
+      //Pseudo-Random Generation Algorithm (PRGA) untuk melakukan enkripsi atau dekripsi data.
+      $i = $j = 0;
+      $res = '';
+      for ($y = 0; $y < strlen($str); $y++) {
+        $i = ($i + 1) % 256;
+        $j = ($j + $s[$i]) % 256;
+        $temp = $s[$i];
+        $s[$i] = $s[$j];
+        $s[$j] = $temp;
+        // Menggunakan fungsi sprintf() untuk menghasilkan format heksadesimal
+        $res .= sprintf("%02X", ord($str[$y]) ^ $s[($s[$i] + $s[$j]) % 256]);
+      }
+      return $res;
+    }
+function encryptKeyword($keyword, $key) {
+    return rc4encrypt($key, $keyword);
 }
 
+function bruteForce($search, $data, $key) {
+    $matches = [];
+    foreach ($data as $row) {
+        // Enkripsi kata kunci untuk membandingkan dengan kata di database
+        $encrypted_row_lokasi = rc4encrypt($key, $row['lokasi']);
+        if (strpos(strtolower($encrypted_row_lokasi), strtolower($search)) !== false) {
+            $matches[] = $row;
+        }
+    }
+    return $matches;
+}
 
+$key = 'kuncisaya';
+
+// Memperoleh kata kunci dari input pengguna
+$search = isset($_GET['search']) ? $_GET['search'] : '';
+// Enkripsi kata kunci sebelum melakukan pencarian
+$encrypted_search = encryptKeyword($search, $key);
+
+// Memperoleh data dari database
 $data = [];
-$query2 = "SELECT * FROM peta";
-if (isset($_GET['search'])) {
-  $search = $_GET['search'];
-  $query2 .= " WHERE lokasi LIKE '%$search%'";
+$query = "SELECT * FROM peta";
+if ($encrypted_search !== '') {
+    // Modifikasi query untuk mencocokkan kata yang sudah dienkripsi
+    $encrypted_search = mysqli_real_escape_string($conn, $encrypted_search);
+    $query .= " WHERE lokasi LIKE '%$encrypted_search%'";
 }
-$result2 = mysqli_query($conn, $query2);
-while ($row = mysqli_fetch_assoc($result2)) {
-  $data[] = $row;
+$result = $conn->query($query);
+while ($row = $result->fetch_assoc()) {
+    $data[] = $row;
 }
-
 $nomor_urut = 1;
 
-while ($row = $result->fetch_assoc()) {
-$lokasi_decrypted = rc4($key, $row['lokasi']);
-$alamat_decrypted = rc4($key, $row['alamat']);
-$luas_decrypted = rc4($key, $row['luas']);
-$status_decrypted = rc4($key, $row['status']);
-$latitude = $row['latitude'];
-$longitude = $row['longitude'];
+foreach ($data as $row)  {
+    // Dekripsi data sebelum ditampilkan
+    $lokasi_decrypted = rc4($key, $row['lokasi']);
+    $alamat_decrypted = rc4($key, $row['alamat']);
+    $luas_decrypted = rc4($key, $row['luas']);
+    $status_decrypted = rc4($key, $row['status']);
+    $latitude = $row['latitude'];
+    $longitude = $row['longitude'];
 
-echo "<tr>";
-echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $nomor_urut . "</h6></td>";
-echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $lokasi_decrypted . "</h6></td>";
-echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $alamat_decrypted . "</h6></td>";
-echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $luas_decrypted . "</h6></td>";
-echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $status_decrypted . "</h6></td>";
-echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $longitude . "</h6></td>";
-echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $latitude . "</h6></td>";
-
-  echo "<td class='border-bottom-0'>
-    <button class='btn btn-sm btn-primary' onclick='showPopup(\"$lokasi_decrypted\", \"$alamat_decrypted\", \"$luas_decrypted\", \"$status_decrypted\", \"$latitude\", \"$longitude\")'>Cek</button>
-</td>";
-
-  $nomor_urut++;
+    // Tampilkan data dalam tabel
+    echo "<tr>";
+    echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $nomor_urut . "</h6></td>";
+    echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $lokasi_decrypted . "</h6></td>";
+    echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $alamat_decrypted . "</h6></td>";
+    echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $luas_decrypted . "</h6></td>";
+    echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $status_decrypted . "</h6></td>";
+    echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $latitude . "</h6></td>";
+    echo "<td class='border-bottom-0'><h6 class='fw-semibold mb-0'>" . $longitude . "</h6></td>";
+    echo "<td class='border-bottom-0'>
+        <button class='btn btn-sm btn-primary' onclick='showPopup(\"$lokasi_decrypted\", \"$alamat_decrypted\", \"$luas_decrypted\", \"$status_decrypted\", \"$latitude\", \"$longitude\")'>Cek</button>
+    </td>";
+    echo "</tr>";
+    $nomor_urut++;
 }
 
 // foreach ($data as $row) {
@@ -435,6 +480,7 @@ for ($i = 1; $i <= $totalPages; $i++) {
     <div class="popup" id="popup">
         <h2>Informasi Lokasi</h2>
         <div id="popup-content"></div>
+        <br>
         <button onclick="closePopup()">Tutup</button>
     </div>
 </body>
