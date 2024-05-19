@@ -554,7 +554,7 @@ var layer = L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
         echo "var marker = L.marker([$latitude, $longitude]).addTo(map);\n";
 
         // Bind a popup to the marker
-        echo "marker.bindPopup('<b>Lokasi:</b> $lokasi_decrypted<br><b>Latitude:</b> $latitude<br><b>Longitude:</b> $longitude<br><b>alamat:</b> $alamat_decrypted<br><b>luas:</b> $luas_decrypted<br><b>status:</b> $status_decrypted<br>').openPopup();\n";
+        echo "marker.bindPopup('<b>Lokasi:</b> $lokasi_decrypted<br><b>Latitude:</b> $latitude<br><b>Longitude:</b> $longitude<br><b>alamat:</b> $alamat_decrypted<br><b>luas:</b> $luas_decrypted<br><b>status:</b> $status_decrypted<br>');\n";
 
         // Define coordinates for the rectangle
         $rectangleCoordinates = [
